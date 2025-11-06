@@ -16,10 +16,9 @@ from emailer import send_email
 def run(
     topics: List[str],
     max_articles: int,
-    dry_run: bool,
     to_addr: Optional[str],
     subject: str = "AI Newsletter",
-    no_open: bool = False,  # 👈 Added flag here
+    no_open: bool = False,
 ) -> None:
     assert GUARDIAN_API_KEY, "Missing GUARDIAN_API_KEY in .env"
 
@@ -55,8 +54,8 @@ def run(
     else:
         print("[open] Skipped opening browser (--no_open flag set)")
 
-    # 5) Email (only if not dry_run and recipient provided)
-    if not dry_run and to_addr:
+    # 5) Email (only if recipient provided)
+    if to_addr:
         smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
         smtp_port = int(os.getenv("SMTP_PORT", "587"))
         smtp_user = os.getenv("SMTP_USER", "")
@@ -84,7 +83,7 @@ def run(
             except Exception as e:
                 print(f"[email] ERROR: {e}")
     else:
-        print("[email] dry_run=True or no --to; skipping send.")
+        print("[email] No recipient (--to or TO_EMAIL in .env) provided; skipping send.")
 
     print(f"[done] Output: {out_path}")
 
@@ -94,24 +93,25 @@ if __name__ == "__main__":
     parser.add_argument("--topics", type=str, default=",".join(DEFAULT_TOPICS),
                         help='Comma-separated topics (e.g., "ai,technology")')
     parser.add_argument("--max_articles", type=int, default=MAX_ARTICLES)
-    parser.add_argument("--dry_run", action="store_true",
-                        help="If set, do not send email; only write/open HTML")
     parser.add_argument("--to", type=str, default="",
-                        help="Recipient email address (required when not using --dry_run)")
+                        help="Recipient email address")
     parser.add_argument("--subject", type=str, default="AI Newsletter",
                         help="Subject line for the email")
     parser.add_argument("--no_open", action="store_true",
-                        help="If set, do not open the newsletter in a browser (useful for cron jobs)")  # 👈 Added argument
+                        help="If set, do not open the newsletter in a browser (useful for cron jobs)")
 
     args = parser.parse_args()
+
+    # Allow default recipient from .env
+    default_to = os.getenv("TO_EMAIL", "")
+    to_addr = args.to or (default_to if default_to.strip() else None)
 
     topics = [t.strip() for t in args.topics.split(",") if t.strip()]
     run(
         topics=topics,
         max_articles=args.max_articles,
-        dry_run=args.dry_run,
-        to_addr=(args.to or None),
+        to_addr=to_addr,
         subject=args.subject,
-        no_open=args.no_open,  # 👈 Passed through
+        no_open=args.no_open,
     )
 
